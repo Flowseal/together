@@ -1,1 +1,2 @@
 from .http_error import http_error_handler
+from .validation_error import validation_error_handler

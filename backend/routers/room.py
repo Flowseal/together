@@ -2,9 +2,10 @@ from uuid import uuid4
 from typing import Optional
 
 from fastapi import APIRouter, Depends, status, HTTPException
-from fastapi.responses import HTMLResponse
 
-from models import Room
+from models import Room, RoomSettings
+from models.contracts import RoomCreate, RoomEdit
+from utils import dump_model, update_model_from
 from dependencies.auth import get_current_user_id
 from database.local_storage import Storage
 
@@ -19,18 +20,28 @@ router = APIRouter(
 @router.get("/", response_model=list[Room])
 def list_rooms():
     storage = Storage()
-    return [room for room in storage.get_rooms().values() if not room.is_private]
+    return [room for room in storage.get_rooms().values() if not room.settings.private]
 
 
-@router.post("/")
-def create_room(name: str, is_private: bool, user_id: str = Depends(get_current_user_id)):
+@router.post("/", response_model=Room)
+def create_room(room_create: RoomCreate, user_id: str = Depends(get_current_user_id)):
     storage = Storage()
 
+    room_settings = RoomSettings(**dump_model(room_create.settings))
+
     room_id = str(uuid4())
-    room = Room(id=room_id, name=name, admin_id=user_id, is_private=is_private, members=[user_id])
+    room = Room(
+        id=room_id, 
+        name=room_create.name, 
+        settings=room_settings,
+        admin_id=user_id, 
+        members=[user_id]
+    )
+
+    Room.model_validate(room)
     storage.insert_room(room)
 
-    return HTMLResponse(status_code=status.HTTP_204_NO_CONTENT)
+    return room
 
 
 @router.get("/{room_id}", response_model=Room)
@@ -47,7 +58,7 @@ def get_room(room_id: str, user_id: str = Depends(get_current_user_id)):
 
 
 @router.patch("/{room_id}", response_model=Room)
-def edit_room(room_id: str, name: Optional[str] = None, is_private: Optional[bool] = None, user_id: str = Depends(get_current_user_id)):
+def edit_room(room_id: str, room_edit: RoomEdit, user_id: str = Depends(get_current_user_id)):
     storage = Storage()
     room = storage.get_room(room_id)
 
@@ -57,10 +68,7 @@ def edit_room(room_id: str, name: Optional[str] = None, is_private: Optional[boo
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
     
     new_room = room.model_copy()
-    if name is not None:
-        new_room.name = name
-    if is_private is not None:
-        new_room.is_private = is_private
+    update_model_from(new_room, room_edit)
 
     Room.model_validate(new_room)
     storage.update_room(room_id, new_room)

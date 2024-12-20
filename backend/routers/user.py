@@ -1,8 +1,8 @@
-from typing import Optional
-
 from fastapi import APIRouter, Depends
 
 from models import Room, User
+from models.contracts import UserEdit
+from utils import update_model_from
 from dependencies.auth import get_current_user_id
 from database.local_storage import Storage
 
@@ -22,14 +22,13 @@ def user_info(user_id: str = Depends(get_current_user_id)):
 
 
 @router.patch("/", response_model=User)
-def edit_user(username: Optional[str], user_id: str = Depends(get_current_user_id)):
+def edit_user(user_edit: UserEdit, user_id: str = Depends(get_current_user_id)):
     storage = Storage()
     user = storage.get_user(user_id)
-    new_user = user.model_copy()
 
-    if username is not None:
-        new_user.username = username
-    
+    new_user = user.model_copy()
+    update_model_from(new_user, user_edit)
+
     User.model_validate(new_user)
     storage.update_user(user_id, new_user)
 

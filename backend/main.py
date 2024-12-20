@@ -6,10 +6,11 @@ import threading
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic_core import ValidationError
 from colorama import init as colorama_init
 
 from routers.api import router as router_api_v1
-from routers.handlers import http_error_handler
+from routers.handlers import http_error_handler, validation_error_handler
 from tasks.clean_expired_rooms import clean_expired_rooms
 
 API_PREFIX = "/api"
@@ -23,6 +24,7 @@ def get_application() -> FastAPI:
 
     ## Add exception handlers
     application.add_exception_handler(HTTPException, http_error_handler)
+    application.add_exception_handler(ValidationError, validation_error_handler)
 
     ## Allow cors
     origins = [
