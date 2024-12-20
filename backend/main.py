@@ -6,6 +6,7 @@ import threading
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from colorama import init as colorama_init
 
 from routers.api import router as router_api_v1
 from routers.handlers import http_error_handler
@@ -39,6 +40,10 @@ def get_application() -> FastAPI:
     )
 
     return application
+
+
+## Force colorama init for WinOS
+colorama_init()
 
 ## Background tasks
 threading.Thread(target=clean_expired_rooms, daemon=True).start()
